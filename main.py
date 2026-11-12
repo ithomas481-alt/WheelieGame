@@ -7,13 +7,9 @@ import array
 import os
 import asyncio
 
-# WebAssembly & Browser friendly relative path helper
 def get_asset_path(relative_path):
     return relative_path.lstrip('/')
 
-# =========================================================================
-# GLOBALS & CONSTANTS
-# =========================================================================
 WINDOW_WIDTH = 1000
 WINDOW_HEIGHT = 500
 GROUND_Y = 400
@@ -42,7 +38,6 @@ FRONT_WHEEL_SIZE = 96
 
 SAVE_FILE = get_asset_path("save_data.json")
 
-# State & Configuration
 sfx_volume = 0.7
 music_volume = 0.5
 low_performance_mode = False
@@ -61,11 +56,9 @@ sound_slam = None
 rear_wheel_img = None
 front_wheel_img = None
 
-# Pre-rendered Sky Surface Cache (Optimization #2)
 PRE_RENDERED_SKIES = {}
 LENS_OVERLAYS = {}
 
-# Game Save State
 total_cash = 100
 high_score = 0.0
 owned_paints = [0]
@@ -77,19 +70,12 @@ equipped_map = 0
 throttle_level = 1
 brake_level = 1
 
-# =========================================================================
-# PROCEDURAL FALLBACK GENERATORS FOR ASSETS
-# =========================================================================
 def generate_procedural_wheel(size, rim_color=(200, 200, 210), spoke_count=12):
     surf = pygame.Surface((size, size), pygame.SRCALPHA)
     center = size // 2
     radius = size // 2 - 2
-    
-    # Outer Tire
     pygame.draw.circle(surf, (20, 22, 26), (center, center), radius)
     pygame.draw.circle(surf, (35, 38, 45), (center, center), radius, 5)
-    
-    # Rim & Spokes
     rim_radius = radius - 8
     pygame.draw.circle(surf, rim_color, (center, center), rim_radius, 4)
     for i in range(spoke_count):
@@ -97,16 +83,12 @@ def generate_procedural_wheel(size, rim_color=(200, 200, 210), spoke_count=12):
         x2 = center + int(math.cos(ang) * rim_radius)
         y2 = center + int(math.sin(ang) * rim_radius)
         pygame.draw.line(surf, (180, 185, 195), (center, center), (x2, y2), 2)
-        
-    # Center Hub
     pygame.draw.circle(surf, (50, 55, 65), (center, center), 9)
     pygame.draw.circle(surf, (230, 235, 245), (center, center), 5)
     return surf
 
 def generate_procedural_frame(width, height, color_rgb, is_seatstand=False):
     surf = pygame.Surface((width, height), pygame.SRCALPHA)
-    
-    # Main Tubing Joints
     r_axle = (width * 0.12, height * 0.80)
     f_axle = (width * 0.78, height * 0.80)
     bb = (width * 0.38, height * 0.75)
@@ -114,7 +96,6 @@ def generate_procedural_frame(width, height, color_rgb, is_seatstand=False):
     head_tube = (width * 0.68, height * 0.28)
     bars = (width * 0.64, height * 0.12)
     
-    # Metal Frame Lines
     pygame.draw.line(surf, color_rgb, r_axle, bb, 7)
     pygame.draw.line(surf, color_rgb, r_axle, seat_joint, 7)
     pygame.draw.line(surf, color_rgb, bb, seat_joint, 8)
@@ -124,19 +105,16 @@ def generate_procedural_frame(width, height, color_rgb, is_seatstand=False):
     pygame.draw.line(surf, (40, 40, 45), head_tube, bars, 6)
     pygame.draw.line(surf, (20, 20, 25), (bars[0]-15, bars[1]), (bars[0]+15, bars[1]), 5)
 
-    # Rider Figure
     rider_color = (230, 235, 245)
     if is_seatstand:
-        # Standing high on seat
         foot_pos = (seat_joint[0], seat_joint[1] - 8)
         hip = (seat_joint[0] - 10, seat_joint[1] - 45)
         head = (hip[0] + 15, hip[1] - 35)
-        pygame.draw.line(surf, (30, 35, 45), foot_pos, hip, 6) # Legs
-        pygame.draw.line(surf, rider_color, hip, head, 9)       # Torso
-        pygame.draw.circle(surf, rider_color, (int(head[0]), int(head[1])), 10) # Head
-        pygame.draw.line(surf, rider_color, (hip[0]+5, hip[1]-20), bars, 5)     # Arms
+        pygame.draw.line(surf, (30, 35, 45), foot_pos, hip, 6)
+        pygame.draw.line(surf, rider_color, hip, head, 9)
+        pygame.draw.circle(surf, rider_color, (int(head[0]), int(head[1])), 10)
+        pygame.draw.line(surf, rider_color, (hip[0]+5, hip[1]-20), bars, 5)
     else:
-        # Seated riding position
         seat_pos = (seat_joint[0] - 12, seat_joint[1] - 10)
         pygame.draw.rect(surf, (20, 20, 25), (seat_pos[0]-15, seat_pos[1], 30, 8), border_radius=3)
         hip = (seat_pos[0], seat_pos[1] - 15)
@@ -148,9 +126,6 @@ def generate_procedural_frame(width, height, color_rgb, is_seatstand=False):
 
     return surf
 
-# =========================================================================
-# CATALOGS & DATA
-# =========================================================================
 PAINTS_CATALOG = [
     {"id": 0, "name": "Factory Red", "price": 0, "file": get_asset_path("assets/frame_red.png"), "file_seatstand": get_asset_path("assets/frame_red_seatstand.png"), "hud_color": (220, 50, 50)},
     {"id": 1, "name": "Cyber Cyan", "price": 100, "file": get_asset_path("assets/frame_cyan.png"), "file_seatstand": get_asset_path("assets/frame_cyan_seatstand.png"), "hud_color": (0, 210, 255)},
@@ -200,7 +175,6 @@ def load_all_paint_assets():
         seatstand_file = item.get("file_seatstand", item["file"].replace(".png", "_seatstand.png"))
         frame_images_seatstand[pid] = load_single_frame_png(seatstand_file, SEATSTAND_WIDTH, SEATSTAND_HEIGHT, fallback_color=item["hud_color"], is_seatstand=True)
 
-# Audio Generators
 def generate_tone_sound(frequency, duration, volume=0.3):
     if not audio_enabled: return None
     n_samples = int(44100 * duration)
@@ -262,9 +236,6 @@ def update_bg_music(target_music_file):
         music_channel.play(active_music_sound, loops=-1)
     except Exception: pass
 
-# =========================================================================
-# SAVE SYSTEM & UTILS
-# =========================================================================
 def save_game_data():
     data = {
         "total_cash": total_cash, "high_score": high_score,
@@ -324,9 +295,6 @@ def draw_glass_box(surface, rect, bg_color=GLASS_BG_CARD, border_color=GLASS_BOR
         pygame.draw.rect(glass_surf, border_color, (0, 0, int(rect.width), int(rect.height)), width=int(border_width), border_radius=int(border_radius))
     surface.blit(glass_surf, (int(rect.x), int(rect.y)))
 
-# =========================================================================
-# PRE-RENDERED SKY GRADIENTS (OPTIMIZATION #2)
-# =========================================================================
 def build_sky_surface(sky_top, sky_bot):
     surf = pygame.Surface((WINDOW_WIDTH, 300))
     for y in range(300):
@@ -362,9 +330,6 @@ def build_lens_overlay(lens_type):
         pygame.draw.rect(overlay, (255, 50, 10, 40), (0, 0, WINDOW_WIDTH, WINDOW_HEIGHT))
     return overlay
 
-# =========================================================================
-# PROCEDURAL BACKGROUND GENERATORS
-# =========================================================================
 def generate_nyc_skyline(width, height, is_far):
     surf = pygame.Surface((width, height), pygame.SRCALPHA)
     base_color = (18, 26, 44) if is_far else (10, 16, 30)
@@ -437,25 +402,23 @@ def generate_california_coast(width, height, is_far):
 def generate_alpine_mountains(width, height, is_far):
     surf = pygame.Surface((width, height), pygame.SRCALPHA)
     random.seed(111 if is_far else 222)
-    rock_color = (40, 50, 70) if is_far else (25, 32, 48)
     pts = [(0, height)]
     for x in range(0, width + 65, 65):
         h = random.randint(120, 250) if is_far else random.randint(60, 140)
         pts.append((int(x), int(height - h)))
     pts.append((width, height))
-    pygame.draw.polygon(surf, rock_color, pts)
+    pygame.draw.polygon(surf, (40, 50, 70) if is_far else (25, 32, 48), pts)
     return surf
 
 def generate_volcanic_canyon(width, height, is_far):
     surf = pygame.Surface((width, height), pygame.SRCALPHA)
     random.seed(333 if is_far else 444)
-    base_color = (24, 12, 14) if is_far else (16, 8, 10)
     pts = [(0, height)]
     for x in range(0, width + 70, 70):
         h = random.randint(100, 230) if is_far else random.randint(50, 130)
         pts.append((int(x), int(height - h)))
     pts.append((width, height))
-    pygame.draw.polygon(surf, base_color, pts)
+    pygame.draw.polygon(surf, (24, 12, 14) if is_far else (16, 8, 10), pts)
     return surf
 
 NYC_FAR, NYC_NEAR = None, None
@@ -469,7 +432,6 @@ VOLCANO_FAR, VOLCANO_NEAR = None, None
 async def init_procedural_backgrounds():
     global NYC_FAR, NYC_NEAR, SUNSET_FAR, SUNSET_NEAR, CYBER_FAR, CYBER_NEAR
     global CHERRY_FAR, CHERRY_NEAR, CALI_FAR, CALI_NEAR, ALPINE_FAR, ALPINE_NEAR, VOLCANO_FAR, VOLCANO_NEAR
-    
     NYC_FAR = generate_nyc_skyline(2000, 320, True); await asyncio.sleep(0)
     NYC_NEAR = generate_nyc_skyline(2000, 320, False); await asyncio.sleep(0)
     SUNSET_FAR = generate_sunset_mountains(2000, 320, True); await asyncio.sleep(0)
@@ -490,19 +452,9 @@ random.seed(777)
 for _ in range(85):
     sx = random.randint(0, 1000)
     sy = random.randint(0, 220)
-    sa = random.randint(120, 255)
-    pygame.draw.circle(STARS_SURF, (200, 235, 255, sa), (int(sx), int(sy)), 1)
+    pygame.draw.circle(STARS_SURF, (200, 235, 255, random.randint(120, 255)), (int(sx), int(sy)), 1)
 
-# Particle System Lists
-rain_drops = [{'x': random.randint(-50, WINDOW_WIDTH + 50), 'y': random.randint(0, WINDOW_HEIGHT), 'speed': random.uniform(8, 15), 'length': random.randint(10, 18)} for _ in range(60)]
-cherry_petals = [{'x': random.randint(-50, WINDOW_WIDTH + 50), 'y': random.randint(0, WINDOW_HEIGHT), 'speed_y': random.uniform(1.2, 3.2), 'speed_x': random.uniform(1.5, 4.0), 'size': random.randint(3, 6), 'rot': random.uniform(0, 360)} for _ in range(40)]
-snow_flakes = [{'x': random.randint(-50, WINDOW_WIDTH + 50), 'y': random.randint(0, WINDOW_HEIGHT), 'speed_y': random.uniform(1.0, 2.5), 'speed_x': random.uniform(-0.8, 0.8), 'size': random.randint(2, 5)} for _ in range(50)]
-volcanic_embers = [{'x': random.randint(0, WINDOW_WIDTH), 'y': random.randint(0, WINDOW_HEIGHT), 'vx': random.uniform(-2.5, -0.5), 'vy': random.uniform(-2.5, -0.8), 'size': random.uniform(2.0, 5.0), 'color': random.choice([(255, 90, 20), (255, 180, 40)])} for _ in range(40)]
-motion_lines = [{'x': random.randint(0, WINDOW_WIDTH), 'y': random.randint(80, GROUND_Y - 30), 'length': random.randint(50, 180), 'speed_mult': random.uniform(0.9, 1.6)} for _ in range(25)]
-
-smoke_particles = []
-sparks = []
-floating_popups = []
+smoke_particles, sparks, floating_popups = [], [], []
 
 def update_maps_catalog_layers():
     MAPS_CATALOG[0]["far_layer"], MAPS_CATALOG[0]["near_layer"] = NYC_FAR, NYC_NEAR
@@ -519,9 +471,6 @@ def get_current_underglow_color():
 def get_current_map():
     return MAPS_CATALOG[equipped_map]
 
-# =========================================================================
-# AXLE GEOMETRY
-# =========================================================================
 REAR_AXLE_ORIGIN = pygame.math.Vector2(FRAME_WIDTH * 0.08, FRAME_HEIGHT * 0.82)
 FRONT_AXLE_ORIGIN = pygame.math.Vector2(FRAME_WIDTH * 0.76, FRAME_HEIGHT * 0.82)
 AXLE_OFFSET_VECTOR = FRONT_AXLE_ORIGIN - REAR_AXLE_ORIGIN
@@ -532,8 +481,6 @@ SEATSTAND_AXLE_OFFSET_VECTOR = SEATSTAND_FRONT_AXLE_ORIGIN - SEATSTAND_REAR_AXLE
 
 rear_susp_comp, rear_susp_vel = 0.0, 0.0
 front_susp_comp, front_susp_vel = 0.0, 0.0
-SUSP_K, SUSP_C, MAX_SUSP_COMP = 240.0, 16.0, 18.0
-
 active_stance = "SEATED"
 combo_multiplier = 1.0
 wheelie_combo_timer = 0.0
@@ -554,7 +501,6 @@ angle, angular_velocity, speed, wheel_spin = 0.0, 0.0, 0.0, 0.0
 throttle_timer, brake_timer = 0.0, 0.0
 shake_timer, shake_intensity, camera_y_offset = 0, 0.0, 0.0
 
-# UI Hitboxes
 play_btn_rect = pygame.Rect(WINDOW_WIDTH // 2 - 320, 155, 190, 48)
 garage_btn_rect = pygame.Rect(WINDOW_WIDTH // 2 - 95, 155, 190, 48)
 settings_btn_rect = pygame.Rect(WINDOW_WIDTH // 2 + 130, 155, 190, 48)
@@ -589,9 +535,6 @@ def trigger_screen_shake(intensity, duration):
     if low_performance_mode: return
     shake_intensity = max(shake_intensity, intensity)
     shake_timer = duration
-
-def add_floating_popup(text, color, x=WINDOW_WIDTH // 2, y=140):
-    floating_popups.append({'x': float(x), 'y': float(y), 'text': text, 'color': color, 'life': 1.0, 'vy': -1.2})
 
 def rotate_around_pivot(surface, image, angle, pivot, origin):
     image_rect = image.get_rect(topleft=(int(pivot[0] - origin.x), int(pivot[1] - origin.y)))
@@ -628,7 +571,6 @@ def reset_game():
     session_cash_earned, scrape_cash_earned = 0, 0.0
     wheelie_combo_timer, combo_multiplier = 0.0, 1.0
     active_stance = "SEATED"
-
     throttle_timer, brake_timer = 0.0, 0.0
     shake_timer, shake_intensity, camera_y_offset = 0, 0.0, 0.0
     rear_susp_comp, rear_susp_vel = 0.0, 0.0
@@ -658,9 +600,6 @@ def draw_forza_speedometer(surface, current_speed, max_speed, current_angle, sco
     surface.blit(dist_txt, (36, 32))
     surface.blit(cash_txt, (36, 60))
 
-# =========================================================================
-# ASYNC MAIN LOOP & INITIALIZATION
-# =========================================================================
 async def main():
     global window, audio_enabled, sound_click, sound_scrape, sound_slam
     global rear_wheel_img, front_wheel_img, game_state, total_cash, high_score
@@ -679,14 +618,12 @@ async def main():
     pygame.display.set_caption("SoFlow Wheelie Life - Web Edition")
     clock = pygame.time.Clock()
 
-    # Loading Screen
     window.fill((10, 12, 16))
     loading_lbl = get_font("Helvetica", 24, bold=True).render("LOADING ENGINE & MAPS...", True, COLOR_WHITE)
     window.blit(loading_lbl, (WINDOW_WIDTH//2 - loading_lbl.get_width()//2, WINDOW_HEIGHT//2 - 12))
     pygame.display.flip()
     await asyncio.sleep(0)
 
-    # 1. Safe Audio Init
     try:
         pygame.mixer.init(frequency=44100, size=-16, channels=2, buffer=2048)
         audio_enabled = True
@@ -701,7 +638,6 @@ async def main():
         try: sound_slam = pygame.mixer.Sound(get_asset_path("assets/slam.mp3"))
         except Exception: sound_slam = generate_tone_sound(120, 0.15, 0.4)
 
-    # 2. Safe Texture Loading (Fallback to crisp procedural wheels if PNG missing)
     try:
         raw_wheel = pygame.image.load(get_asset_path("assets/wheel.png")).convert_alpha()
         bounds = raw_wheel.get_bounding_rect()
@@ -717,14 +653,12 @@ async def main():
 
     await asyncio.sleep(0)
 
-    # 3. Pre-render Skies & Lens Overlays (Optimization #2)
     for m in MAPS_CATALOG:
         PRE_RENDERED_SKIES[m["id"]] = build_sky_surface(m["sky_top"], m["sky_bottom"])
         if m.get("lens_filter"):
             LENS_OVERLAYS[m["lens_filter"]] = build_lens_overlay(m["lens_filter"])
         await asyncio.sleep(0)
 
-    # 4. Async Map & Save Loading
     await init_procedural_backgrounds()
     update_maps_catalog_layers()
     load_game_data()
@@ -733,7 +667,6 @@ async def main():
     joysticks = [pygame.joystick.Joystick(x) for x in range(pygame.joystick.get_count())]
     for joy in joysticks: joy.init()
 
-    # MAIN GAME LOOP
     while True:
         dt = clock.tick(60) / 1000.0
         mouse_pos = pygame.mouse.get_pos()
@@ -784,6 +717,20 @@ async def main():
                                 if card.collidepoint(event.pos):
                                     if item["id"] in owned_maps: equipped_map = item["id"]; play_sfx(sound_click); save_game_data()
                                     elif total_cash >= item["price"]: total_cash -= item["price"]; owned_maps.append(item["id"]); equipped_map = item["id"]; play_sfx(sound_click); save_game_data()
+                        elif active_garage_tab == "UPGRADES":
+                            t_card = pygame.Rect(120, 180, 340, 240)
+                            if t_card.collidepoint(event.pos):
+                                nxt = throttle_level + 1
+                                if nxt <= 4 and total_cash >= UPGRADE_PRICES["throttle"][nxt]:
+                                    total_cash -= UPGRADE_PRICES["throttle"][nxt]; throttle_level = nxt
+                                    play_sfx(sound_click); save_game_data()
+
+                            b_card = pygame.Rect(540, 180, 340, 240)
+                            if b_card.collidepoint(event.pos):
+                                nxt = brake_level + 1
+                                if nxt <= 4 and total_cash >= UPGRADE_PRICES["brake"][nxt]:
+                                    total_cash -= UPGRADE_PRICES["brake"][nxt]; brake_level = nxt
+                                    play_sfx(sound_click); save_game_data()
 
                 elif game_state == "PAUSED":
                     if pause_resume_rect.collidepoint(event.pos): play_sfx(sound_click); game_state = "PLAYING"
@@ -808,31 +755,33 @@ async def main():
                     elif game_state == "GARAGE": save_game_data(); game_state = "MENU"
                 elif game_state in ["MENU", "GAMEOVER"] and event.key in [pygame.K_RETURN, pygame.K_SPACE]: reset_game()
 
-        # Keyboard / Controls Physics
         keys = pygame.key.get_pressed()
         if game_state == "PLAYING":
-            is_w = keys[pygame.K_w] or keys[pygame.K_UP] or keys[pygame.K_RIGHT]
-            is_space = keys[pygame.K_SPACE]
-            is_brake = keys[pygame.K_s] or keys[pygame.K_DOWN] or keys[pygame.K_LEFT]
-            is_shift = keys[pygame.K_LSHIFT] or keys[pygame.K_e]
+            is_w_pressed = keys[pygame.K_w] or keys[pygame.K_UP] or keys[pygame.K_RIGHT] or keys[pygame.K_d]
+            is_space_pressed = keys[pygame.K_SPACE]
+            is_braking = keys[pygame.K_s] or keys[pygame.K_DOWN] or keys[pygame.K_LEFT] or keys[pygame.K_a]
+            is_shift_pressed = keys[pygame.K_LSHIFT] or keys[pygame.K_RSHIFT] or keys[pygame.K_e]
 
-            active_stance = "SEAT_STANDER" if (is_shift and angle > 15.0) else "SEATED"
+            active_stance = "SEAT_STANDER" if (is_shift_pressed and angle > 15.0) else "SEATED"
 
-            if is_w:
+            accel_mult = 1.0 + (throttle_level - 1) * 0.20
+            brake_mult = 1.0 + (brake_level - 1) * 0.22
+
+            if is_w_pressed:
                 throttle_timer += dt
                 surge = 1.0 if throttle_timer < 0.3 else min(1.85, 1.0 + (throttle_timer - 0.3) * 2.2)
-                speed = min(speed + 0.32 * surge, 30.0)
-                angular_velocity += (0.42 if active_stance == "SEAT_STANDER" else 0.38) * surge
+                speed = min(speed + 0.32 * surge * accel_mult, 30.0)
+                angular_velocity += (0.42 if active_stance == "SEAT_STANDER" else 0.38) * surge * accel_mult
             else:
                 throttle_timer = 0.0
                 speed = max(0.0, speed - 0.025)
 
-            if is_space and not is_w: angular_velocity += 0.45
+            if is_space_pressed and not is_w_pressed: angular_velocity += 0.45
 
-            if is_brake:
+            if is_braking:
                 brake_timer += dt
-                speed = max(0.0, speed - (0.04 + min(1.0, brake_timer / 0.8) * 0.08))
-                angular_velocity -= 0.45
+                speed = max(0.0, speed - (0.04 + min(1.0, brake_timer / 0.8) * 0.08) * brake_mult)
+                angular_velocity -= 0.45 * brake_mult
             else: brake_timer = 0.0
 
             if angle > 0:
@@ -859,8 +808,6 @@ async def main():
                 total_cash += session_cash_earned
                 save_game_data()
 
-        # RENDER ENGINE (OPTIMIZED)
-        # 1. Blit Pre-Rendered Sky Surface (Fastest render possible!)
         window.blit(PRE_RENDERED_SKIES[equipped_map], (0, 0))
 
         if current_map.get("has_stars", False): window.blit(STARS_SURF, (0, 0))
@@ -880,7 +827,6 @@ async def main():
         for x in range(int((-world_offset) % 80), WINDOW_WIDTH, 80):
             pygame.draw.line(window, current_map["dash_color"], (x, rendered_g_y + 30), (x + 40, rendered_g_y + 30), 4)
 
-        # Bike & Wheel Rendering
         active_frame = frame_images_seatstand[equipped_paint] if active_stance == "SEAT_STANDER" else frame_images_normal[equipped_paint]
         active_rear_orig = SEATSTAND_REAR_AXLE_ORIGIN if active_stance == "SEAT_STANDER" else REAR_AXLE_ORIGIN
         active_axle_off = SEATSTAND_AXLE_OFFSET_VECTOR if active_stance == "SEAT_STANDER" else AXLE_OFFSET_VECTOR
@@ -898,13 +844,12 @@ async def main():
 
         draw_suspension_hardware(window, rear_w_pos, frame_pivot, front_w_pos, frame_front_m)
 
-        # Pre-cached Lens Overlays
         if not low_performance_mode and current_map.get("lens_filter") in LENS_OVERLAYS:
             window.blit(LENS_OVERLAYS[current_map["lens_filter"]], (0, 0))
 
-        # Menus & Overlays
         if game_state == "PLAYING":
             draw_forza_speedometer(window, speed, 30.0, angle, wheelie_distance)
+
         elif game_state == "MENU":
             glass_bg = pygame.Surface((WINDOW_WIDTH, WINDOW_HEIGHT), pygame.SRCALPHA); glass_bg.fill(GLASS_OVERLAY_DARK)
             window.blit(glass_bg, (0, 0))
@@ -913,33 +858,164 @@ async def main():
             t_txt = get_font("Helvetica", 48, bold=True).render("SOFLOW WHEELIE LIFE", True, COLOR_WHITE)
             window.blit(t_txt, (header.centerx - t_txt.get_width() // 2, header.y + 16))
 
-            for b_txt_str, rect in [("PLAY [ENTER]", play_btn_rect), ("GARAGE", garage_btn_rect), ("SETTINGS", settings_btn_rect)]:
+            for b_txt_str, rect in [("PLAY [ENTER]", play_btn_rect), ("GARAGE [G]", garage_btn_rect), ("SETTINGS [S]", settings_btn_rect)]:
                 is_h = rect.collidepoint(mouse_pos)
                 draw_glass_box(window, rect, bg_color=GLASS_BG_ACTIVE if is_h else GLASS_BG_CARD, border_color=COLOR_WHITE if is_h else GLASS_BORDER_SUBTLE, border_radius=16)
                 txt = get_font("Helvetica", 18, bold=True).render(b_txt_str, True, COLOR_TEXT_DARK if is_h else COLOR_WHITE)
                 window.blit(txt, (rect.centerx - txt.get_width() // 2, rect.centery - txt.get_height() // 2))
+
+        elif game_state == "GARAGE":
+            glass_bg = pygame.Surface((WINDOW_WIDTH, WINDOW_HEIGHT), pygame.SRCALPHA); glass_bg.fill((8, 10, 14, 235))
+            window.blit(glass_bg, (0, 0))
+
+            title_font = get_font("Helvetica", 28, bold=True)
+            hud_font = get_font("Helvetica", 15, bold=True)
+            item_title_font = get_font("Helvetica", 13, bold=True)
+            btn_font = get_font("Helvetica", 15, bold=True)
+
+            is_back_hover = garage_back_rect.collidepoint(mouse_pos)
+            draw_glass_box(window, garage_back_rect, bg_color=GLASS_BG_CARD_HOVER if is_back_hover else GLASS_BG_CARD, border_radius=12)
+            back_txt = hud_font.render("< BACK", True, COLOR_WHITE)
+            window.blit(back_txt, (garage_back_rect.centerx - back_txt.get_width() // 2, garage_back_rect.centery - back_txt.get_height() // 2))
+
+            window.blit(title_font.render("GARAGE & CUSTOM SHOP", True, COLOR_WHITE), (190, 34))
+            window.blit(hud_font.render(f"CASH: ${int(total_cash)}", True, COLOR_TEXT_MUTED), (WINDOW_WIDTH - 180, 40))
+
+            tabs = [("PAINTS", tab_paints_rect), ("UNDERGLOW", tab_underglow_rect), ("MAPS", tab_maps_rect), ("UPGRADES", tab_upgrades_rect)]
+            for tab_name, rect in tabs:
+                is_active = (active_garage_tab == tab_name)
+                is_hover = rect.collidepoint(mouse_pos)
+                draw_glass_box(window, rect, bg_color=GLASS_BG_ACTIVE if is_active else (GLASS_BG_CARD_HOVER if is_hover else GLASS_BG_CARD), border_radius=14)
+                t_txt = btn_font.render(tab_name, True, COLOR_TEXT_DARK if is_active else COLOR_WHITE)
+                window.blit(t_txt, (rect.centerx - t_txt.get_width() // 2, rect.centery - t_txt.get_height() // 2))
+
+            if active_garage_tab == "PAINTS":
+                for idx, item in enumerate(PAINTS_CATALOG):
+                    card_rect = pygame.Rect(50 + idx * 175, 180, 160, 240)
+                    is_owned = item["id"] in owned_paints; is_eq = (equipped_paint == item["id"]); is_hover = card_rect.collidepoint(mouse_pos)
+                    draw_glass_box(window, card_rect, bg_color=(255, 255, 255, 35) if is_hover else GLASS_BG_CARD, border_color=COLOR_WHITE if is_eq else GLASS_BORDER_SUBTLE, border_radius=16)
+
+                    preview_rect = pygame.Rect(card_rect.x + 20, card_rect.y + 20, 120, 70)
+                    pygame.draw.rect(window, item["hud_color"], preview_rect, border_radius=10)
+                    window.blit(item_title_font.render(item["name"], True, COLOR_WHITE), (card_rect.centerx - 40, card_rect.y + 105))
+
+                    btn_box = pygame.Rect(card_rect.x + 15, card_rect.y + 175, 130, 40)
+                    b_txt_str = "EQUIPPED" if is_eq else ("EQUIP" if is_owned else f"${item['price']}")
+                    draw_glass_box(window, btn_box, bg_color=GLASS_BG_ACTIVE if is_eq else GLASS_BG_CARD_HOVER, border_radius=10)
+                    b_txt = hud_font.render(b_txt_str, True, COLOR_TEXT_DARK if is_eq else COLOR_WHITE)
+                    window.blit(b_txt, (btn_box.centerx - b_txt.get_width() // 2, btn_box.centery - b_txt.get_height() // 2))
+
+            elif active_garage_tab == "UNDERGLOW":
+                for idx, item in enumerate(UNDERGLOW_CATALOG):
+                    card_rect = pygame.Rect(50 + idx * 175, 180, 160, 240)
+                    is_owned = item["id"] in owned_underglows; is_eq = (equipped_underglow == item["id"]); is_hover = card_rect.collidepoint(mouse_pos)
+                    draw_glass_box(window, card_rect, bg_color=(255, 255, 255, 35) if is_hover else GLASS_BG_CARD, border_color=COLOR_WHITE if is_eq else GLASS_BORDER_SUBTLE, border_radius=16)
+
+                    preview_rect = pygame.Rect(card_rect.x + 20, card_rect.y + 20, 120, 70)
+                    pygame.draw.rect(window, (15, 15, 20), preview_rect, border_radius=10)
+                    pygame.draw.ellipse(window, item["color"], (preview_rect.x + 10, preview_rect.y + 20, 100, 30))
+                    window.blit(item_title_font.render(item["name"], True, COLOR_WHITE), (card_rect.centerx - 40, card_rect.y + 105))
+
+                    btn_box = pygame.Rect(card_rect.x + 15, card_rect.y + 175, 130, 40)
+                    b_txt_str = "EQUIPPED" if is_eq else ("EQUIP" if is_owned else f"${item['price']}")
+                    draw_glass_box(window, btn_box, bg_color=GLASS_BG_ACTIVE if is_eq else GLASS_BG_CARD_HOVER, border_radius=10)
+                    b_txt = hud_font.render(b_txt_str, True, COLOR_TEXT_DARK if is_eq else COLOR_WHITE)
+                    window.blit(b_txt, (btn_box.centerx - b_txt.get_width() // 2, btn_box.centery - b_txt.get_height() // 2))
+
+            elif active_garage_tab == "MAPS":
+                for idx, item in enumerate(MAPS_CATALOG):
+                    col, row = idx % 4, idx // 4
+                    card_rect = pygame.Rect(35 + col * 235, 170 + row * 135, 220, 125)
+                    is_owned = item["id"] in owned_maps; is_eq = (equipped_map == item["id"])
+                    draw_glass_box(window, card_rect, bg_color=(255, 255, 255, 35) if card_rect.collidepoint(mouse_pos) else GLASS_BG_CARD, border_color=COLOR_WHITE if is_eq else GLASS_BORDER_SUBTLE, border_radius=14)
+                    window.blit(item_title_font.render(item["name"], True, COLOR_WHITE), (card_rect.x + 15, card_rect.y + 15))
+
+                    btn_box = pygame.Rect(card_rect.x + 100, card_rect.y + 70, 110, 35)
+                    b_txt_str = "EQUIPPED" if is_eq else ("EQUIP" if is_owned else f"${item['price']}")
+                    draw_glass_box(window, btn_box, bg_color=GLASS_BG_ACTIVE if is_eq else GLASS_BG_CARD_HOVER, border_radius=8)
+                    b_txt = hud_font.render(b_txt_str, True, COLOR_TEXT_DARK if is_eq else COLOR_WHITE)
+                    window.blit(b_txt, (btn_box.centerx - b_txt.get_width() // 2, btn_box.centery - b_txt.get_height() // 2))
+
+            elif active_garage_tab == "UPGRADES":
+                t_card = pygame.Rect(120, 180, 340, 240)
+                draw_glass_box(window, t_card, bg_color=GLASS_BG_CARD, border_radius=20)
+                window.blit(btn_font.render("THROTTLE ENGINE STAGE", True, COLOR_WHITE), (t_card.x + 35, t_card.y + 25))
+                window.blit(hud_font.render(f"Stage Level: {throttle_level} / 4", True, COLOR_TEXT_MUTED), (t_card.x + 35, t_card.y + 65))
+
+                t_btn = pygame.Rect(t_card.x + 70, t_card.y + 155, 200, 48)
+                t_str = "MAX LEVEL" if throttle_level >= 4 else f"UPGRADE ${UPGRADE_PRICES['throttle'][throttle_level + 1]}"
+                draw_glass_box(window, t_btn, bg_color=GLASS_BG_ACTIVE if throttle_level >= 4 else GLASS_BG_CARD_HOVER, border_radius=12)
+                t_txt = btn_font.render(t_str, True, COLOR_TEXT_DARK if throttle_level >= 4 else COLOR_WHITE)
+                window.blit(t_txt, (t_btn.centerx - t_txt.get_width() // 2, t_btn.centery - t_txt.get_height() // 2))
+
+                b_card = pygame.Rect(540, 180, 340, 240)
+                draw_glass_box(window, b_card, bg_color=GLASS_BG_CARD, border_radius=20)
+                window.blit(btn_font.render("REAR BRAKE STAGE", True, COLOR_WHITE), (b_card.x + 35, b_card.y + 25))
+                window.blit(hud_font.render(f"Stage Level: {brake_level} / 4", True, COLOR_TEXT_MUTED), (b_card.x + 35, b_card.y + 65))
+
+                b_btn = pygame.Rect(b_card.x + 70, b_card.y + 155, 200, 48)
+                b_str = "MAX LEVEL" if brake_level >= 4 else f"UPGRADE ${UPGRADE_PRICES['brake'][brake_level + 1]}"
+                draw_glass_box(window, b_btn, bg_color=GLASS_BG_ACTIVE if brake_level >= 4 else GLASS_BG_CARD_HOVER, border_radius=12)
+                b_txt = btn_font.render(b_str, True, COLOR_TEXT_DARK if brake_level >= 4 else COLOR_WHITE)
+                window.blit(b_txt, (b_btn.centerx - b_txt.get_width() // 2, b_btn.centery - b_txt.get_height() // 2))
 
         elif game_state == "SETTINGS":
             glass_bg = pygame.Surface((WINDOW_WIDTH, WINDOW_HEIGHT), pygame.SRCALPHA); glass_bg.fill((8, 10, 14, 235))
             window.blit(glass_bg, (0, 0))
             panel = pygame.Rect(WINDOW_WIDTH // 2 - 320, 100, 640, 360)
             draw_glass_box(window, panel, bg_color=GLASS_BG_CARD, border_color=GLASS_BORDER_SUBTLE, border_radius=20)
-            
+
+            lbl_font = get_font("Helvetica", 18, bold=True)
+            btn_font = get_font("Helvetica", 15, bold=True)
+
+            window.blit(lbl_font.render(f"SFX VOLUME: {int(sfx_volume * 100)}%", True, COLOR_WHITE), (panel.x + 40, 140))
+            draw_glass_box(window, sfx_minus_rect, bg_color=GLASS_BG_CARD_HOVER, border_radius=10)
+            draw_glass_box(window, sfx_plus_rect, bg_color=GLASS_BG_CARD_HOVER, border_radius=10)
+            window.blit(lbl_font.render("-", True, COLOR_WHITE), (sfx_minus_rect.centerx - 5, sfx_minus_rect.centery - 12))
+            window.blit(lbl_font.render("+", True, COLOR_WHITE), (sfx_plus_rect.centerx - 6, sfx_plus_rect.centery - 12))
+
+            window.blit(lbl_font.render(f"MUSIC VOLUME: {int(music_volume * 100)}%", True, COLOR_WHITE), (panel.x + 40, 200))
+            draw_glass_box(window, music_minus_rect, bg_color=GLASS_BG_CARD_HOVER, border_radius=10)
+            draw_glass_box(window, music_plus_rect, bg_color=GLASS_BG_CARD_HOVER, border_radius=10)
+            window.blit(lbl_font.render("-", True, COLOR_WHITE), (music_minus_rect.centerx - 5, music_minus_rect.centery - 12))
+            window.blit(lbl_font.render("+", True, COLOR_WHITE), (music_plus_rect.centerx - 6, music_plus_rect.centery - 12))
+
             is_h = low_perf_toggle_rect.collidepoint(mouse_pos)
             draw_glass_box(window, low_perf_toggle_rect, bg_color=(50, 205, 50, 180) if low_performance_mode else (GLASS_BG_CARD_HOVER if is_h else GLASS_BG_CARD), border_radius=14)
-            p_txt = get_font("Helvetica", 15, bold=True).render(f"CHROMEBOOK MODE: {'ON (MAX FPS)' if low_performance_mode else 'OFF'}", True, COLOR_TEXT_DARK if low_performance_mode else COLOR_WHITE)
+            p_txt = btn_font.render(f"CHROMEBOOK MODE: {'ON (MAX FPS)' if low_performance_mode else 'OFF'}", True, COLOR_TEXT_DARK if low_performance_mode else COLOR_WHITE)
             window.blit(p_txt, (low_perf_toggle_rect.centerx - p_txt.get_width() // 2, low_perf_toggle_rect.centery - p_txt.get_height() // 2))
 
+            draw_glass_box(window, reset_data_rect, bg_color=(220, 60, 60, 100), border_radius=14)
+            r_txt = btn_font.render("RESET SAVE PROGRESS", True, COLOR_WHITE)
+            window.blit(r_txt, (reset_data_rect.centerx - r_txt.get_width() // 2, reset_data_rect.centery - r_txt.get_height() // 2))
+
             draw_glass_box(window, settings_back_rect, bg_color=GLASS_BG_CARD, border_radius=12)
-            b_txt = get_font("Helvetica", 15, bold=True).render("< BACK", True, COLOR_WHITE)
+            b_txt = btn_font.render("< BACK", True, COLOR_WHITE)
             window.blit(b_txt, (settings_back_rect.centerx - b_txt.get_width() // 2, settings_back_rect.centery - b_txt.get_height() // 2))
 
-        elif game_state == "GARAGE":
-            glass_bg = pygame.Surface((WINDOW_WIDTH, WINDOW_HEIGHT), pygame.SRCALPHA); glass_bg.fill((8, 10, 14, 235))
+            if confirm_reset_active:
+                dialog_rect = pygame.Rect(WINDOW_WIDTH // 2 - 220, 140, 440, 220)
+                draw_glass_box(window, dialog_rect, bg_color=(20, 24, 32, 245), border_radius=20)
+                window.blit(get_font("Helvetica", 18, bold=True).render("CONFIRM DATA RESET?", True, COLOR_DANGER), (dialog_rect.centerx - 100, dialog_rect.y + 30))
+
+                draw_glass_box(window, confirm_yes_rect, bg_color=(220, 60, 60, 220), border_radius=10)
+                window.blit(btn_font.render("YES, RESET", True, COLOR_WHITE), (confirm_yes_rect.centerx - 40, confirm_yes_rect.centery - 10))
+
+                draw_glass_box(window, confirm_no_rect, bg_color=GLASS_BG_CARD, border_radius=10)
+                window.blit(btn_font.render("CANCEL", True, COLOR_WHITE), (confirm_no_rect.centerx - 30, confirm_no_rect.centery - 10))
+
+        elif game_state == "PAUSED":
+            glass_bg = pygame.Surface((WINDOW_WIDTH, WINDOW_HEIGHT), pygame.SRCALPHA); glass_bg.fill((10, 12, 16, 180))
             window.blit(glass_bg, (0, 0))
-            draw_glass_box(window, garage_back_rect, bg_color=GLASS_BG_CARD, border_radius=12)
-            b_txt = get_font("Helvetica", 15, bold=True).render("< BACK", True, COLOR_WHITE)
-            window.blit(b_txt, (garage_back_rect.centerx - b_txt.get_width() // 2, garage_back_rect.centery - b_txt.get_height() // 2))
+            p_modal = pygame.Rect(WINDOW_WIDTH // 2 - 180, 65, 360, 370)
+            draw_glass_box(window, p_modal, bg_color=(255, 255, 255, 25), border_radius=22)
+            window.blit(get_font("Helvetica", 36, bold=True).render("PAUSED", True, COLOR_WHITE), (p_modal.centerx - 65, p_modal.y + 30))
+
+            for b_name, rect in [("RESUME", pause_resume_rect), ("RESTART", pause_restart_rect), ("SETTINGS", pause_settings_rect), ("MAIN MENU", pause_menu_rect)]:
+                is_h = rect.collidepoint(mouse_pos)
+                draw_glass_box(window, rect, bg_color=GLASS_BG_ACTIVE if is_h else GLASS_BG_CARD, border_radius=14)
+                t = get_font("Helvetica", 18, bold=True).render(b_name, True, COLOR_TEXT_DARK if is_h else COLOR_WHITE)
+                window.blit(t, (rect.centerx - t.get_width() // 2, rect.centery - t.get_height() // 2))
 
         elif game_state == "GAMEOVER":
             glass_bg = pygame.Surface((WINDOW_WIDTH, WINDOW_HEIGHT), pygame.SRCALPHA); glass_bg.fill((10, 12, 16, 220))
